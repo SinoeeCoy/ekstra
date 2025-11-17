@@ -16,6 +16,9 @@ $user_role = strtolower($user['role'] ?? '');
 $is_siswa = ($user_role === 'siswa');
 $can_edit = in_array($user_role, ['pembina', 'admin', 'waka', 'kepala']);
 
+// Jika siswa, ambil user_id untuk filter data
+$user_id = $user['id'] ?? 0;
+
 // Proses hapus (hanya untuk yang memiliki akses)
 if ($can_edit && isset($_GET['hapus']) && isset($_GET['id'])) {
     $id = mysqli_real_escape_string($koneksi, $_GET['id']);
@@ -47,7 +50,9 @@ if ($can_edit && isset($_GET['hapus']) && isset($_GET['id'])) {
 // Ambil parameter filter dan search
 $filter_ekstra = isset($_GET['filter_ekstra']) ? $_GET['filter_ekstra'] : '';
 $filter_jurusan = isset($_GET['filter_jurusan']) ? $_GET['filter_jurusan'] : '';
+$filter_kelas = isset($_GET['filter_kelas']) ? $_GET['filter_kelas'] : '';
 $filter_gender = isset($_GET['filter_gender']) ? $_GET['filter_gender'] : '';
+$filter_agama = isset($_GET['filter_agama']) ? $_GET['filter_agama'] : '';
 $search = isset($_GET['search']) ? $_GET['search'] : '';
 
 $where_clause = "";
@@ -55,7 +60,6 @@ $conditions = [];
 
 if (!empty($filter_ekstra)) {
     $filter_ekstra_escaped = mysqli_real_escape_string($koneksi, $filter_ekstra);
-    // Cari di kolom ekstra_id dengan FIND_IN_SET untuk mencocokkan ID yang dipisah koma
     $conditions[] = "FIND_IN_SET('$filter_ekstra_escaped', ds.ekstra_id) > 0";
 }
 
@@ -64,19 +68,31 @@ if (!empty($filter_jurusan)) {
     $conditions[] = "ds.jurusan = '$filter_jurusan_escaped'";
 }
 
+if (!empty($filter_kelas)) {
+    $filter_kelas_escaped = mysqli_real_escape_string($koneksi, $filter_kelas);
+    $conditions[] = "ds.kelas = '$filter_kelas_escaped'";
+}
+
 if (!empty($filter_gender)) {
     $filter_gender_escaped = mysqli_real_escape_string($koneksi, $filter_gender);
     $conditions[] = "ds.jenis_kelamin = '$filter_gender_escaped'";
 }
 
+if (!empty($filter_agama)) {
+    $filter_agama_escaped = mysqli_real_escape_string($koneksi, $filter_agama);
+    $conditions[] = "ds.agama = '$filter_agama_escaped'";
+}
+
 if (!empty($search)) {
     $search_escaped = mysqli_real_escape_string($koneksi, $search);
-    $conditions[] = "(ds.nama_siswa LIKE '%$search_escaped%' OR ds.nis LIKE '%$search_escaped%')";
+    // FIXED: Hapus pencarian 'nis', hanya gunakan 'nisn' dan 'nama_siswa'
+    $conditions[] = "(ds.nama_siswa LIKE '%$search_escaped%' OR ds.nisn LIKE '%$search_escaped%')";
 }
 
 if (count($conditions) > 0) {
     $where_clause = "WHERE " . implode(" AND ", $conditions);
 }
+
 ?>
 
 <style>
@@ -160,7 +176,7 @@ if (count($conditions) > 0) {
         $total_laki = mysqli_num_rows(mysqli_query($koneksi, "SELECT * FROM data_siswa WHERE jenis_kelamin = 'Laki-laki'"));
         $total_perempuan = mysqli_num_rows(mysqli_query($koneksi, "SELECT * FROM data_siswa WHERE jenis_kelamin = 'Perempuan'"));
         
-        // Ekstra terpopuler - hitung dari ekstra_id yang paling sering muncul
+        // Ekstra terpopuler
         $popular_query = mysqli_query($koneksi, "
             SELECT e.id, e.nama_ekstra, COUNT(*) as jumlah 
             FROM data_siswa ds
@@ -258,7 +274,7 @@ if (count($conditions) > 0) {
                             <input type="text" 
                                    id="searchInput" 
                                    class="form-control" 
-                                   placeholder="Cari nama atau NIS..." 
+                                   placeholder="Cari nama atau NISN..." 
                                    value="<?php echo htmlspecialchars($search); ?>">
                             <button class="btn btn-primary" type="button" onclick="doSearch()">
                                 Cari
@@ -273,7 +289,7 @@ if (count($conditions) > 0) {
                     
                     <!-- Filter Ekstrakurikuler -->
                     <div class="col-lg-2 col-md-4 mb-2">
-                        <label for="filterEkstra" class="form-label">Filter Ekstrakurikuler:</label>
+                        <label for="filterEkstra" class="form-label">Filter Ekstra:</label>
                         <select id="filterEkstra" class="form-select" onchange="filterData()">
                             <option value="">Semua Ekstra</option>
                             <?php
@@ -286,11 +302,22 @@ if (count($conditions) > 0) {
                         </select>
                     </div>
                     
+                    <!-- Filter Kelas -->
+                    <div class="col-lg-1 col-md-4 mb-2">
+                        <label for="filterKelas" class="form-label">Kelas:</label>
+                        <select id="filterKelas" class="form-select" onchange="filterData()">
+                            <option value="">Semua</option>
+                            <option value="X" <?php echo ($filter_kelas == 'X') ? 'selected' : ''; ?>>X</option>
+                            <option value="XI" <?php echo ($filter_kelas == 'XI') ? 'selected' : ''; ?>>XI</option>
+                            <option value="XII" <?php echo ($filter_kelas == 'XII') ? 'selected' : ''; ?>>XII</option>
+                        </select>
+                    </div>
+                    
                     <!-- Filter Jurusan -->
                     <div class="col-lg-2 col-md-4 mb-2">
-                        <label for="filterJurusan" class="form-label">Filter Jurusan:</label>
+                        <label for="filterJurusan" class="form-label">Jurusan:</label>
                         <select id="filterJurusan" class="form-select" onchange="filterData()">
-                            <option value="">Semua Jurusan</option>
+                            <option value="">Semua</option>
                             <option value="PPLG" <?php echo ($filter_jurusan == 'PPLG') ? 'selected' : ''; ?>>PPLG</option>
                             <option value="TJKT" <?php echo ($filter_jurusan == 'TJKT') ? 'selected' : ''; ?>>TJKT</option>
                             <option value="BUSANA" <?php echo ($filter_jurusan == 'BUSANA') ? 'selected' : ''; ?>>BUSANA</option>
@@ -299,7 +326,7 @@ if (count($conditions) > 0) {
                     
                     <!-- Filter Gender -->
                     <div class="col-lg-2 col-md-4 mb-2">
-                        <label for="filterGender" class="form-label">Filter Jenis Kelamin:</label>
+                        <label for="filterGender" class="form-label">Gender:</label>
                         <select id="filterGender" class="form-select" onchange="filterData()">
                             <option value="">Semua</option>
                             <option value="Laki-laki" <?php echo ($filter_gender == 'Laki-laki') ? 'selected' : ''; ?>>Laki-laki</option>
@@ -307,18 +334,31 @@ if (count($conditions) > 0) {
                         </select>
                     </div>
                     
-                    <!-- Export & Reset -->
-                    <div class="col-lg-3 col-md-12 mb-2">
-                        <label class="form-label d-none d-lg-block">&nbsp;</label>
-                        <div class="d-flex gap-1">
-                            <?php if (!empty($filter_ekstra) || !empty($filter_jurusan) || !empty($filter_gender) || !empty($search)): ?>
-                            <button class="btn btn-secondary btn-sm" onclick="resetFilter()" title="Reset semua filter">
-                                <i class="fas fa-redo"></i> Reset
-                            </button>
-                            <?php endif; ?>
-                        </div>
+                    <!-- Filter Agama -->
+                    <div class="col-lg-2 col-md-4 mb-2">
+                        <label for="filterAgama" class="form-label">Agama:</label>
+                        <select id="filterAgama" class="form-select" onchange="filterData()">
+                            <option value="">Semua</option>
+                            <option value="Islam" <?php echo ($filter_agama == 'Islam') ? 'selected' : ''; ?>>Islam</option>
+                            <option value="Kristen" <?php echo ($filter_agama == 'Kristen') ? 'selected' : ''; ?>>Kristen</option>
+                            <option value="Katolik" <?php echo ($filter_agama == 'Katolik') ? 'selected' : ''; ?>>Katolik</option>
+                            <option value="Hindu" <?php echo ($filter_agama == 'Hindu') ? 'selected' : ''; ?>>Hindu</option>
+                            <option value="Buddha" <?php echo ($filter_agama == 'Buddha') ? 'selected' : ''; ?>>Buddha</option>
+                            <option value="Konghucu" <?php echo ($filter_agama == 'Konghucu') ? 'selected' : ''; ?>>Konghucu</option>
+                        </select>
                     </div>
                 </div>
+
+                <!-- Reset Button -->
+                <?php if (!empty($filter_ekstra) || !empty($filter_jurusan) || !empty($filter_kelas) || !empty($filter_gender) || !empty($filter_agama) || !empty($search)): ?>
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <button class="btn btn-secondary btn-sm" onclick="resetFilter()">
+                            <i class="fas fa-redo"></i> Reset Semua Filter
+                        </button>
+                    </div>
+                </div>
+                <?php endif; ?>
 
                 <!-- Tabel Data Siswa -->
                 <div class="table-responsive">
@@ -326,14 +366,18 @@ if (count($conditions) > 0) {
                         <thead class="table-blue">
                             <tr>
                                 <th>No</th>
-                                <th>NIS</th>
                                 <th>Nama Siswa</th>
-                                <th>Jenis Kelamin</th>
+                                <th>NISN</th>
+                                <th>TTL</th>
+                                <th>JK</th>
                                 <th>Kelas</th>
                                 <th>Jurusan</th>
+                                <th>Agama</th>
                                 <th>Ekstrakurikuler</th>
+                                <?php if ($can_edit): ?>
                                 <th>No. HP</th>
-                                <th>Tanggal Daftar</th>
+                                <?php endif; ?>
+                                <th>Tgl Daftar</th>
                                 <th>Aksi</th>
                             </tr>
                         </thead>
@@ -348,9 +392,14 @@ if (count($conditions) > 0) {
                             ");
                             
                             if (mysqli_num_rows($query) == 0) {
-                                echo '<tr><td colspan="10" class="text-center text-muted py-4">';
+                                $colspan = $can_edit ? 12 : 11;
+                                echo '<tr><td colspan="' . $colspan . '" class="text-center text-muted py-4">';
                                 echo '<i class="fas fa-inbox fa-3x mb-3 d-block"></i>';
-                                echo '<h5>Tidak ada data siswa</h5>';
+                                if ($is_siswa) {
+                                    echo '<h5>Anda belum terdaftar dalam ekstrakurikuler</h5>';
+                                } else {
+                                    echo '<h5>Tidak ada data siswa</h5>';
+                                }
                                 echo '</td></tr>';
                             }
                             
@@ -361,30 +410,46 @@ if (count($conditions) > 0) {
                                 elseif ($data['jurusan'] == 'TJKT') $badge_jurusan_color = 'success';
                                 elseif ($data['jurusan'] == 'BUSANA') $badge_jurusan_color = 'warning';
                                 
-                                // Ambil nama ekstra dari ID yang tersimpan
+                                // Format TTL
+                                $ttl = '';
+                                if (!empty($data['tempat_lahir']) && !empty($data['tanggal_lahir'])) {
+                                    $tgl = new DateTime($data['tanggal_lahir']);
+                                    $ttl = htmlspecialchars($data['tempat_lahir']) . ', ' . $tgl->format('d/m/Y');
+                                }
+                                
+                                // Ambil detail ekstra
                                 $ekstra_names = [];
+                                $ekstra_json = [];
                                 if (!empty($data['ekstra_id'])) {
                                     $ekstra_ids = explode(',', $data['ekstra_id']);
                                     foreach ($ekstra_ids as $eid) {
                                         $eid = trim($eid);
-                                        $ekstra_detail = mysqli_query($koneksi, "SELECT nama_ekstra FROM ekstra WHERE id = '$eid'");
-                                        if ($ekstra_row = mysqli_fetch_array($ekstra_detail)) {
-                                            $ekstra_names[] = $ekstra_row['nama_ekstra'];
+                                        $ekstra_q = mysqli_query($koneksi, "SELECT * FROM ekstra WHERE id = '$eid'");
+                                        if ($ekstra_r = mysqli_fetch_array($ekstra_q)) {
+                                            $ekstra_names[] = $ekstra_r['nama_ekstra'];
+                                            $ekstra_json[] = [
+                                                'nama' => $ekstra_r['nama_ekstra'],
+                                                'pembina' => $ekstra_r['pembina'],
+                                                'hari' => $ekstra_r['hari'],
+                                                'waktu' => $ekstra_r['waktu'],
+                                                'lokasi' => $ekstra_r['lokasi']
+                                            ];
                                         }
                                     }
                                 }
+                                $ekstra_json_string = htmlspecialchars(json_encode($ekstra_json), ENT_QUOTES, 'UTF-8');
+                                $tanggal_format = date('d F Y, H:i', strtotime($data['tanggal_daftar']));
                             ?>
                             <tr>
                                 <td><?php echo $i; ?></td>
-                                <td><strong><?php echo htmlspecialchars($data['nis']); ?></strong></td>
                                 <td><?php echo htmlspecialchars($data['nama_siswa']); ?></td>
+                                <td><strong><?php echo htmlspecialchars($data['nisn'] ?? '-'); ?></strong></td>
+                                <td><small><?php echo $ttl; ?></small></td>
                                 <td class="text-center">
                                     <?php if ($data['jenis_kelamin'] == 'Laki-laki'): ?>
-                                        <i class="fas fa-mars gender-icon text-primary"></i>
-                                        <span class="d-none d-md-inline">Laki-laki</span>
+                                        <i class="fas fa-mars gender-icon text-primary" title="Laki-laki"></i>
                                     <?php else: ?>
-                                        <i class="fas fa-venus gender-icon text-danger"></i>
-                                        <span class="d-none d-md-inline">Perempuan</span>
+                                        <i class="fas fa-venus gender-icon text-danger" title="Perempuan"></i>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -395,6 +460,7 @@ if (count($conditions) > 0) {
                                         <?php echo htmlspecialchars($data['jurusan']); ?>
                                     </span>
                                 </td>
+                                <td><small><?php echo htmlspecialchars($data['agama'] ?? '-'); ?></small></td>
                                 <td>
                                     <?php foreach ($ekstra_names as $nama_ekstra): ?>
                                         <span class="badge badge-ekstra bg-info text-dark">
@@ -402,11 +468,18 @@ if (count($conditions) > 0) {
                                         </span>
                                     <?php endforeach; ?>
                                 </td>
+                                <?php if ($can_edit): ?>
                                 <td>
+                                    <?php if (!empty($data['no_hp'])): ?>
                                     <a href="tel:<?php echo htmlspecialchars($data['no_hp']); ?>" class="text-decoration-none">
-                                        <i class="fas fa-phone text-success"></i> <?php echo htmlspecialchars($data['no_hp']); ?>
+                                        <i class="fas fa-phone text-success"></i> 
+                                        <small><?php echo htmlspecialchars($data['no_hp']); ?></small>
                                     </a>
+                                    <?php else: ?>
+                                    <small class="text-muted">-</small>
+                                    <?php endif; ?>
                                 </td>
+                                <?php endif; ?>
                                 <td>
                                     <small>
                                         <?php 
@@ -418,8 +491,22 @@ if (count($conditions) > 0) {
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group">
                                         <button type="button" class="btn btn-info btn-sm" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#detailModal<?php echo $data['id']; ?>"
+                                                onclick='showDetail(<?php echo json_encode([
+                                                    'id' => $data['id'],
+                                                    'nama' => $data['nama_siswa'],
+                                                    'nisn' => $data['nisn'] ?? '',
+                                                    'gender' => $data['jenis_kelamin'],
+                                                    'tempat_lahir' => $data['tempat_lahir'] ?? '',
+                                                    'tanggal_lahir' => $data['tanggal_lahir'] ?? '',
+                                                    'agama' => $data['agama'] ?? '',
+                                                    'kelas' => $data['kelas'],
+                                                    'jurusan' => $data['jurusan'],
+                                                    'no_hp' => $data['no_hp'] ?? '',
+                                                    'tanggal_daftar' => $tanggal_format,
+                                                    'ekstra' => $ekstra_json,
+                                                    'is_siswa' => $is_siswa,
+                                                    'can_edit' => $can_edit
+                                                ]); ?>)'
                                                 title="Lihat Detail">
                                             <i class="fas fa-eye"></i>
                                         </button>
@@ -454,14 +541,18 @@ if (count($conditions) > 0) {
 <script>
 function filterData() {
     var ekstra = document.getElementById('filterEkstra').value;
+    var kelas = document.getElementById('filterKelas').value;
     var jurusan = document.getElementById('filterJurusan').value;
     var gender = document.getElementById('filterGender').value;
+    var agama = document.getElementById('filterAgama').value;
     var search = document.getElementById('searchInput').value;
     
     var url = '?page=siswa';
     if (ekstra) url += '&filter_ekstra=' + encodeURIComponent(ekstra);
+    if (kelas) url += '&filter_kelas=' + encodeURIComponent(kelas);
     if (jurusan) url += '&filter_jurusan=' + encodeURIComponent(jurusan);
     if (gender) url += '&filter_gender=' + encodeURIComponent(gender);
+    if (agama) url += '&filter_agama=' + encodeURIComponent(agama);
     if (search) url += '&search=' + encodeURIComponent(search);
     
     window.location.href = url;
@@ -497,108 +588,167 @@ function confirmDelete(id, nama) {
     });
 }
 
+function showDetail(data) {
+    // Icon gender
+    const genderIcon = data.gender === 'Laki-laki' 
+        ? '<i class="fas fa-mars text-primary"></i>' 
+        : '<i class="fas fa-venus text-danger"></i>';
+    
+    // Badge jurusan color
+    let badgeColor = 'secondary';
+    if (data.jurusan === 'PPLG') badgeColor = 'primary';
+    else if (data.jurusan === 'TJKT') badgeColor = 'success';
+    else if (data.jurusan === 'BUSANA') badgeColor = 'warning';
+    
+    // Format TTL - FIXED
+    let ttl = '-';
+    let tempatLahir = data.tempat_lahir || '';
+    let tanggalLahir = data.tanggal_lahir || '';
+    
+    if (tempatLahir && tanggalLahir) {
+        try {
+            const tgl = new Date(tanggalLahir);
+            if (!isNaN(tgl.getTime())) {
+                const bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                const hari = tgl.getDate();
+                const bulanNama = bulan[tgl.getMonth()];
+                const tahun = tgl.getFullYear();
+                ttl = `${tempatLahir}, ${hari} ${bulanNama} ${tahun}`;
+            }
+        } catch (e) {
+            console.error('Error parsing date:', e);
+        }
+    }
+    
+    // Format ekstrakurikuler - hanya nama ekstra saja
+    let ekstraHTML = '';
+    if (data.ekstra && data.ekstra.length > 0) {
+        ekstraHTML = '<div class="d-flex flex-wrap gap-2">' + data.ekstra.map(e => `
+            <span class="badge bg-info text-dark px-3 py-2" style="font-size: 0.9rem;">${e.nama}</span>
+        `).join('') + '</div>';
+    } else {
+        ekstraHTML = '<div class="alert alert-light text-center mb-0"><i class="fas fa-info-circle me-2"></i>Belum terdaftar ekstrakurikuler</div>';
+    }
+    
+    // Build detail HTML dengan layout yang lebih baik
+    let detailHTML = `
+        <div class="container-fluid px-4">
+            <!-- Header Info -->
+            <div class="text-center mb-4 pb-3 border-bottom">
+                <h4 class="mb-1 text-primary">${data.nama}</h4>
+                <p class="text-muted mb-0">NISN: <strong>${data.nisn || '-'}</strong></p>
+            </div>
+            
+            <div class="row g-4">
+                <!-- Kolom Kiri: Data Pribadi -->
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-primary bg-gradient text-white">
+                            <h6 class="mb-0"><i class="fas fa-id-card me-2"></i>Data Pribadi</h6>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-borderless mb-0">
+                                <tbody>
+                                    <tr>
+                                        <td width="45%" class="text-muted">Nama Lengkap</td>
+                                        <td width="5%">:</td>
+                                        <td><strong>${data.nama}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">NISN</td>
+                                        <td>:</td>
+                                        <td><strong class="text-primary">${data.nisn || '-'}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Tempat, Tgl Lahir</td>
+                                        <td>:</td>
+                                        <td>${ttl}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Jenis Kelamin</td>
+                                        <td>:</td>
+                                        <td>${genderIcon} <span>${data.gender}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Agama</td>
+                                        <td>:</td>
+                                        <td>${data.agama || '-'}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Kelas</td>
+                                        <td>:</td>
+                                        <td><span class="badge bg-primary">${data.kelas}</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-muted">Jurusan</td>
+                                        <td>:</td>
+                                        <td><span class="badge bg-${badgeColor}">${data.jurusan}</span></td>
+                                    </tr>
+                                    ${data.can_edit && data.no_hp ? `
+                                    <tr>
+                                        <td class="text-muted">No. HP/WA</td>
+                                        <td>:</td>
+                                        <td>
+                                            <a href="https://wa.me/${data.no_hp.replace(/^0/, '62')}" target="_blank" class="text-decoration-none text-success">
+                                                <i class="fab fa-whatsapp me-1"></i>${data.no_hp}
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    ` : ''}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Kolom Kanan: Ekstrakurikuler -->
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-success bg-gradient text-white">
+                            <h6 class="mb-0"><i class="fas fa-running me-2"></i>Ekstrakurikuler</h6>
+                        </div>
+                        <div class="card-body">
+                            ${ekstraHTML}
+                            
+                            <div class="mt-4 pt-3 border-top">
+                                <div class="d-flex align-items-center text-muted">
+                                    <i class="far fa-calendar-check me-2"></i>
+                                    <small>Tanggal Pendaftaran:</small>
+                                </div>
+                                <div class="mt-1">
+                                    <strong class="text-dark">${data.tanggal_daftar}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    Swal.fire({
+        html: detailHTML,
+        width: '900px',
+        showCloseButton: true,
+        showConfirmButton: true,
+        confirmButtonText: '<i class="fas fa-times me-2"></i>Tutup',
+        confirmButtonColor: '#6c757d',
+        customClass: {
+            popup: 'rounded-4',
+            htmlContainer: 'p-0'
+        },
+        didOpen: () => {
+            const swalPopup = document.querySelector('.swal2-popup');
+            if (swalPopup) {
+                swalPopup.style.padding = '25px';
+            }
+        }
+    });
+}
+
 document.getElementById('searchInput').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') {
         doSearch();
     }
 });
 </script>
-
-<!-- Modal Detail Siswa -->
-<?php
-mysqli_data_seek($query, 0);
-while ($data = mysqli_fetch_array($query)) {
-    // Ambil detail ekstra
-    $ekstra_details = [];
-    if (!empty($data['ekstra_id'])) {
-        $ekstra_ids = explode(',', $data['ekstra_id']);
-        foreach ($ekstra_ids as $eid) {
-            $eid = trim($eid);
-            $ekstra_q = mysqli_query($koneksi, "SELECT * FROM ekstra WHERE id = '$eid'");
-            if ($ekstra_r = mysqli_fetch_array($ekstra_q)) {
-                $ekstra_details[] = $ekstra_r;
-            }
-        }
-    }
-?>
-<div class="modal fade" id="detailModal<?php echo $data['id']; ?>" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="fas fa-user"></i> Detail Siswa</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6 class="border-bottom pb-2"><i class="fas fa-id-card text-primary"></i> Data Pribadi</h6>
-                        <table class="table table-sm table-borderless">
-                            <tr>
-                                <td width="40%"><strong>Nama</strong></td>
-                                <td>: <?php echo htmlspecialchars($data['nama_siswa']); ?></td>
-                            </tr>
-                            <tr>
-                                <td><strong>NIS</strong></td>
-                                <td>: <?php echo htmlspecialchars($data['nis']); ?></td>
-                            </tr>
-                            <tr>
-                                <td><strong>Jenis Kelamin</strong></td>
-                                <td>: <?php 
-                                if ($data['jenis_kelamin'] == 'Laki-laki') {
-                                    echo '<i class="fas fa-mars text-primary"></i> Laki-laki';
-                                } else {
-                                    echo '<i class="fas fa-venus text-danger"></i> Perempuan';
-                                }
-                                ?></td>
-                            </tr>
-                            <tr>
-                                <td><strong>Kelas</strong></td>
-                                <td>: <span class="badge bg-primary"><?php echo htmlspecialchars($data['kelas']); ?></span></td>
-                            </tr>
-                            <tr>
-                                <td><strong>Jurusan</strong></td>
-                                <td>: <?php 
-                                $badge_color = 'secondary';
-                                if ($data['jurusan'] == 'PPLG') $badge_color = 'primary';
-                                elseif ($data['jurusan'] == 'TJKT') $badge_color = 'success';
-                                elseif ($data['jurusan'] == 'BUSANA') $badge_color = 'warning';
-                                echo '<span class="badge bg-' . $badge_color . '">' . htmlspecialchars($data['jurusan']) . '</span>';
-                                ?></td>
-                            </tr>
-                            <tr>
-                                <td><strong>No. HP</strong></td>
-                                <td>: <?php echo htmlspecialchars($data['no_hp']); ?></td>
-                            </tr>
-                        </table>
-                    </div>
-                    <div class="col-md-6">
-                        <h6 class="border-bottom pb-2"><i class="fas fa-running text-success"></i> Data Ekstrakurikuler</h6>
-                        <?php foreach ($ekstra_details as $ekstra_det): ?>
-                        <div class="mb-3">
-                            <strong><span class="badge bg-info text-dark"><?php echo htmlspecialchars($ekstra_det['nama_ekstra']); ?></span></strong>
-                            <ul class="list-unstyled ms-3 mt-1">
-                                <li><small><i class="fas fa-user text-muted"></i> <?php echo htmlspecialchars($ekstra_det['pembina']); ?></small></li>
-                                <li><small><i class="fas fa-calendar text-muted"></i> <?php echo htmlspecialchars($ekstra_det['hari']); ?>, <?php echo htmlspecialchars($ekstra_det['waktu']); ?></small></li>
-                                <li><small><i class="fas fa-map-marker-alt text-muted"></i> <?php echo htmlspecialchars($ekstra_det['lokasi']); ?></small></li>
-                            </ul>
-                        </div>
-                        <?php endforeach; ?>
-                        <div class="mt-3">
-                            <small><strong>Tanggal Daftar:</strong> <?php echo date('d F Y, H:i', strtotime($data['tanggal_daftar'])); ?></small>
-                        </div>
-                    </div>
-                    <div class="col-12 mt-3">
-                        <h6 class="border-bottom pb-2"><i class="fas fa-map-marked-alt text-danger"></i> Alamat Rumah</h6>
-                        <p class="text-muted"><?php echo nl2br(htmlspecialchars($data['alamat'])); ?></p>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="fas fa-times"></i> Tutup
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-<?php } ?>

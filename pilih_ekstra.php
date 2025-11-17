@@ -286,8 +286,6 @@ if (isset($_POST['pilih_ekstra'])) {
                 <ul>
                     <li>Pilih minimal 1 ekstrakurikuler</li>
                     <li>Anda dapat memilih lebih dari 1 ekstrakurikuler</li>
-                    <li>Perhatikan jadwal dan lokasi agar tidak bentrok</li>
-                    <li>Setelah memilih, Anda akan diminta melengkapi data pribadi</li>
                 </ul>
             </div>
 
@@ -302,22 +300,7 @@ if (isset($_POST['pilih_ekstra'])) {
                     <?php foreach ($ekstrakurikuler as $index => $ekstra): ?>
                         <div class="ekstra-card" onclick="toggleCard(this)">
                             <input type="checkbox" name="ekstra[]" value="<?php echo $ekstra['id']; ?>" onclick="event.stopPropagation();">
-                            <div class="ekstra-icon">
-                                <i class="fas fa-star"></i>
-                            </div>
                             <div class="ekstra-name"><?php echo htmlspecialchars($ekstra['nama_ekstra']); ?></div>
-                            <div class="ekstra-detail">
-                                <i class="fas fa-user"></i> Pembina: <?php echo htmlspecialchars($ekstra['pembina'] ?? 'Belum ditentukan'); ?>
-                            </div>
-                            <div class="ekstra-detail">
-                                <i class="fas fa-calendar"></i> <?php echo htmlspecialchars($ekstra['hari'] ?? 'Akan diinformasikan'); ?>
-                            </div>
-                            <div class="ekstra-detail">
-                                <i class="fas fa-clock"></i> <?php echo htmlspecialchars($ekstra['waktu'] ?? '-'); ?>
-                            </div>
-                            <div class="ekstra-detail">
-                                <i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($ekstra['lokasi'] ?? 'Akan diinformasikan'); ?>
-                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>

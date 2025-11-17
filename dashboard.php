@@ -60,6 +60,11 @@ $user_role = htmlspecialchars($user['role'] ?? '-', ENT_QUOTES, 'UTF-8');
                             <tr>
                                 <td width="150" class="fw-semibold">Nama User</td>
                                 <td width="10">:</td>
+                                <td><?php echo htmlspecialchars($user['nama_lengkap'] ?? $username, ENT_QUOTES, 'UTF-8'); ?></td>
+                            </tr>
+                            <tr>
+                                <td width="150" class="fw-semibold">Username/NIS</td>
+                                <td width="10">:</td>
                                 <td><?php echo $username; ?></td>
                             </tr>
                             <tr>

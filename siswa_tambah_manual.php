@@ -386,9 +386,6 @@ $ekstra_query = mysqli_query($koneksi, "SELECT * FROM ekstra ORDER BY nama_ekstr
                                 <i class="fas fa-check-circle text-success"></i> NIS harus sesuai dengan data sekolah
                             </div>
                             <div class="info-item">
-                                <i class="fas fa-check-circle text-success"></i> NIS minimal 4 digit angka
-                            </div>
-                            <div class="info-item">
                                 <i class="fas fa-check-circle text-success"></i> Pilih ekstrakurikuler yang sesuai
                             </div>
                             <div class="info-item">

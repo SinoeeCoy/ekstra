@@ -15,7 +15,20 @@ if (isset($_POST['login'])) {
     if (empty($username) || empty($password)) {
         echo '<script>alert("Error: Username dan password harus diisi.");</script>';
     } else {
-        $loginStmt = $koneksi->prepare("SELECT id, username, password, role, status FROM users WHERE username = ?");
+        // Query dengan JOIN untuk ambil nama siswa
+        $loginStmt = $koneksi->prepare("
+            SELECT 
+                u.id, 
+                u.username, 
+                u.password, 
+                u.role, 
+                u.status,
+                u.nama_siswa,
+                ds.id as siswa_id
+            FROM users u
+            LEFT JOIN data_siswa ds ON u.id = ds.user_id
+            WHERE u.username = ?
+        ");
         $loginStmt->bind_param("s", $username);
 
         $loginStmt->execute();
@@ -30,32 +43,31 @@ if (isset($_POST['login'])) {
                 if (md5($password) === $data['password']) {
                     session_regenerate_id(true);
                     
+                    // Tentukan nama yang akan ditampilkan
+                    $namaLengkap = !empty($data['nama_siswa']) ? $data['nama_siswa'] : $data['username'];
+                    
                     $_SESSION['user'] = [
                         'id' => $data['id'],
                         'username' => $data['username'],
                         'password' => $data['password'],
-                        'role' => $data['role']
+                        'role' => $data['role'],
+                        'nama_lengkap' => $namaLengkap
                     ];
                     
-                    // Cek jika siswa, apakah sudah lengkap datanya
+                    // Alert berdasarkan role dengan nama lengkap
                     if ($data['role'] == 'siswa') {
-                        $checkSiswa = $koneksi->prepare("SELECT id FROM data_siswa WHERE user_id = ?");
-                        $checkSiswa->bind_param("i", $data['id']);
-                        $checkSiswa->execute();
-                        $siswaData = $checkSiswa->get_result()->fetch_assoc();
-                        
-                        if (!$siswaData) {
-                            echo '<script>alert("Selamat datang, '.htmlspecialchars($data['nama_siswa']).'! Silakan pilih ekstrakurikuler dan lengkapi data Anda."); location.href="pilih_ekstra.php";</script>';
+                        // Cek apakah data siswa sudah lengkap
+                        if (!$data['siswa_id']) {
+                            echo '<script>alert("Selamat datang, '.htmlspecialchars($namaLengkap).'! Silakan pilih ekstrakurikuler dan lengkapi data Anda."); location.href="pilih_ekstra.php";</script>';
                         } else {
-                            echo '<script>alert("Selamat datang Siswa, '.htmlspecialchars($data['nama_siswa']).'"); location.href="home.php";</script>';
+                            echo '<script>alert("Selamat datang, '.htmlspecialchars($namaLengkap).'!"); location.href="home.php";</script>';
                         }
-                        $checkSiswa->close();
                     } elseif ($data['role'] == 'pembina') {
-                        echo '<script>alert("Selamat datang Pembina, '.htmlspecialchars($data['username']).'"); location.href="home.php";</script>';
+                        echo '<script>alert("Selamat datang Pembina, '.htmlspecialchars($namaLengkap).'!"); location.href="home.php";</script>';
                     } elseif ($data['role'] == 'admin') {
-                        echo '<script>alert("Selamat datang Admin, '.htmlspecialchars($data['username']).'"); location.href="home.php";</script>';
+                        echo '<script>alert("Selamat datang Admin, '.htmlspecialchars($namaLengkap).'!"); location.href="home.php";</script>';
                     } else {
-                        echo '<script>alert("Selamat datang, '.htmlspecialchars($data['nama_siswa']).'"); location.href="home.php";</script>';
+                        echo '<script>alert("Selamat datang, '.htmlspecialchars($namaLengkap).'!"); location.href="home.php";</script>';
                     }
                 } else {
                     echo '<script>alert("Error: Password tidak sesuai.");</script>';

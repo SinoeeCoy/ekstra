@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['tambah_pengumuman'])) 
     if (hasAccess(['admin', 'pembina'])) {
         $judul = $_POST['judul'] ?? '';
         $isi = $_POST['isi'] ?? '';
-        $prioritas = $_POST['prioritas'] ?? 'sedang';
+        $prioritas = $_POST['prioritas'] ?? 'penting';
         $kategori = $_POST['kategori'] ?? '';
         $target_audience = $_POST['target_audience'] ?? 'semua';
         $status = $_POST['status'] ?? 'aktif';
@@ -83,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['edit_pengumuman'])) {
         $id = $_POST['id'] ?? 0;
         $judul = $_POST['judul'] ?? '';
         $isi = $_POST['isi'] ?? '';
-        $prioritas = $_POST['prioritas'] ?? 'sedang';
+        $prioritas = $_POST['prioritas'] ?? 'penting';
         $kategori = $_POST['kategori'] ?? '';
         $target_audience = $_POST['target_audience'] ?? 'semua';
         $status = $_POST['status'] ?? 'aktif';
@@ -197,26 +197,29 @@ if (isset($_GET['hapus_komentar'])) {
     exit;
 }
 
-/// Query pengumuman (filter per role)
+// ===== QUERY PENGUMUMAN - FIXED VERSION =====
 if ($user_role == 'siswa') {
-    // Query yang lebih fleksibel untuk siswa
+    // Query untuk siswa: tampilkan semua pengumuman yang relevan
+    // PERBAIKAN: Urutan kondisi WHERE diubah agar lebih efisien
     $stmt = mysqli_prepare($koneksi, "
         SELECT * FROM pengumuman
-        WHERE (
+        WHERE status = 'aktif'
+        AND tanggal_mulai <= CURDATE()
+        AND tanggal_berakhir >= CURDATE()
+        AND (
             target_audience = 'semua' 
             OR (
                 target_audience = 'siswa' 
-                AND (
-                    kategori = '' 
-                    OR kategori IS NULL 
-                    OR kategori = ?
-                )
+                AND (kategori = '' OR kategori IS NULL OR kategori = ?)
             )
         )
-        AND status = 'aktif'
-        AND tanggal_mulai <= CURDATE()
-        AND tanggal_berakhir >= CURDATE()
-        ORDER BY prioritas DESC, tanggal_dibuat DESC
+        ORDER BY 
+            CASE prioritas 
+                WHEN 'sangat penting' THEN 1 
+                WHEN 'penting' THEN 2 
+                ELSE 3 
+            END,
+            tanggal_dibuat DESC
     ");
     mysqli_stmt_bind_param($stmt, "s", $ekstra_siswa);
     mysqli_stmt_execute($stmt);
@@ -225,7 +228,13 @@ if ($user_role == 'siswa') {
     // Untuk admin, pembina: tampilkan semua
     $query = mysqli_query($koneksi, "
         SELECT * FROM pengumuman
-        ORDER BY tanggal_dibuat DESC
+        ORDER BY 
+            CASE prioritas 
+                WHEN 'sangat penting' THEN 1 
+                WHEN 'penting' THEN 2 
+                ELSE 3 
+            END,
+            tanggal_dibuat DESC
     ");
 }
 
@@ -719,7 +728,7 @@ function tampilkanKomentar($koneksi, $pengumuman_id, $parent_id = null, $level =
         </div>
     </div>
 
-    <!-- Daftar Siswa Per Ekstrakurikuler - COMPLETELY FIXED -->
+    <!-- Daftar Siswa Per Ekstrakurikuler -->
     <div class="card mb-5 shadow-sm">
         <div class="card-header bg-success text-white">
             <i class="fas fa-users"></i> Daftar Siswa Per Ekstrakurikuler
